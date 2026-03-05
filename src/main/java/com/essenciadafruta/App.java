@@ -3,7 +3,10 @@ package com.essenciadafruta;
 import com.essenciadafruta.util.Database;
 import com.essenciadafruta.view.MainWindow;
 import com.formdev.flatlaf.FlatLightLaf;
-import javax.swing.*;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
 
 /**
  * Classe principal do sistema Essência da Fruta
@@ -39,6 +42,7 @@ public class App {
                     System.exit(0);
                 }
             });
+            mainWindow.setVisible(true);
         });
     }
 }
