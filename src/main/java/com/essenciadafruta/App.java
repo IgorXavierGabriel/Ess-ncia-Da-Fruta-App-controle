@@ -22,8 +22,7 @@ public class App {
         }
         
         // Inicializar banco de dados
-        try {
-            Database.getConnection();
+        try (java.sql.Connection ignored = Database.getConnection()) {
             System.out.println("✓ Banco de dados inicializado com sucesso");
         } catch (Exception e) {
             System.err.println("✗ Erro ao inicializar banco de dados: " + e.getMessage());
@@ -37,8 +36,6 @@ public class App {
             mainWindow.addWindowListener(new java.awt.event.WindowAdapter() {
                 @Override
                 public void windowClosing(java.awt.event.WindowEvent event) {
-                    // Fechar banco de dados antes de sair
-                    Database.closeConnection();
                     System.exit(0);
                 }
             });

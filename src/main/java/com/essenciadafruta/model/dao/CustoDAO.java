@@ -64,15 +64,15 @@ public class CustoDAO {
      * Lista custos por mês
      */
     public List<Custo> listarPorMes(int ano, int mes) throws SQLException {
-        String sql = "SELECT * FROM custo WHERE CAST(strftime('%Y', data) AS INTEGER) = ? " +
-                     "AND CAST(strftime('%m', data) AS INTEGER) = ? ORDER BY data DESC";
+        String sql = "SELECT * FROM custo WHERE data >= ? AND data < ? ORDER BY data DESC";
         List<Custo> lista = new ArrayList<>();
+        YearMonth inicio = YearMonth.of(ano, mes);
         
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             
-            ps.setInt(1, ano);
-            ps.setInt(2, mes);
+            ps.setString(1, inicio.atDay(1).toString());
+            ps.setString(2, inicio.plusMonths(1).atDay(1).toString());
             ResultSet rs = ps.executeQuery();
             
             while (rs.next()) {
@@ -129,13 +129,14 @@ public class CustoDAO {
      * Lista custos por ano
      */
     public List<Custo> listarPorAno(int ano) throws SQLException {
-        String sql = "SELECT * FROM custo WHERE CAST(strftime('%Y', data) AS INTEGER) = ? ORDER BY data DESC";
+        String sql = "SELECT * FROM custo WHERE data >= ? AND data < ? ORDER BY data DESC";
         List<Custo> lista = new ArrayList<>();
         
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             
-            ps.setInt(1, ano);
+            ps.setString(1, LocalDate.of(ano, 1, 1).toString());
+            ps.setString(2, LocalDate.of(ano + 1, 1, 1).toString());
             ResultSet rs = ps.executeQuery();
             
             while (rs.next()) {

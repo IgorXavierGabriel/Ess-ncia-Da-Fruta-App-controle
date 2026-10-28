@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,9 +19,15 @@ import com.essenciadafruta.util.Database;
 public class SaidaDAO {
     
     public void inserir(Saida saida) throws SQLException {
+        try (Connection conn = Database.getConnection()) {
+            inserir(conn, saida);
+        }
+    }
+
+    /** Insere usando uma conexão existente (permite participar de uma transação). */
+    public void inserir(Connection conn, Saida saida) throws SQLException {
         String sql = "INSERT INTO saida (polpa_id, sabor, peso_unitario, quantidade, preco, whatsapp, endereco, data_entrega, data_saida, metodo_pagamento, cliente, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, saida.getPolpaId());
             pstmt.setString(2, saida.getSabor());
             pstmt.setString(3, saida.getPesoUnitario());
@@ -66,12 +73,16 @@ public class SaidaDAO {
     }
     
     public double getTotalVendasMes() throws SQLException {
-        String sql = "SELECT COALESCE(SUM(quantidade * preco), 0) as total FROM saida WHERE strftime('%Y-%m', data_saida) = strftime('%Y-%m', 'now')";
+        String sql = "SELECT COALESCE(SUM(quantidade * preco), 0) as total FROM saida WHERE data_saida >= ? AND data_saida < ?";
+        YearMonth mes = YearMonth.now();
         try (Connection conn = Database.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getDouble("total");
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, mes.atDay(1).toString());
+            ps.setString(2, mes.plusMonths(1).atDay(1).toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("total");
+                }
             }
         }
         return 0;
@@ -79,7 +90,7 @@ public class SaidaDAO {
     
     public List<Saida> listarPorSemana(LocalDate dataFim) throws SQLException {
         LocalDate dataInicio = dataFim.minusDays(6);
-        String sql = "SELECT * FROM saida WHERE DATE(data_saida) >= ? AND DATE(data_saida) <= ? ORDER BY data_saida DESC";
+        String sql = "SELECT * FROM saida WHERE data_saida >= ? AND data_saida <= ? ORDER BY data_saida DESC";
         List<Saida> lista = new ArrayList<>();
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -94,12 +105,13 @@ public class SaidaDAO {
     }
     
     public List<Saida> listarPorMes(int ano, int mes) throws SQLException {
-        String sql = "SELECT * FROM saida WHERE CAST(strftime('%Y', data_saida) AS INTEGER) = ? AND CAST(strftime('%m', data_saida) AS INTEGER) = ? ORDER BY data_saida DESC";
+        String sql = "SELECT * FROM saida WHERE data_saida >= ? AND data_saida < ? ORDER BY data_saida DESC";
         List<Saida> lista = new ArrayList<>();
+        YearMonth inicio = YearMonth.of(ano, mes);
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, ano);
-            ps.setInt(2, mes);
+            ps.setString(1, inicio.atDay(1).toString());
+            ps.setString(2, inicio.plusMonths(1).atDay(1).toString());
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 lista.add(construirSaida(rs));
@@ -109,11 +121,12 @@ public class SaidaDAO {
     }
     
     public List<Saida> listarPorAno(int ano) throws SQLException {
-        String sql = "SELECT * FROM saida WHERE CAST(strftime('%Y', data_saida) AS INTEGER) = ? ORDER BY data_saida DESC";
+        String sql = "SELECT * FROM saida WHERE data_saida >= ? AND data_saida < ? ORDER BY data_saida DESC";
         List<Saida> lista = new ArrayList<>();
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, ano);
+            ps.setString(1, LocalDate.of(ano, 1, 1).toString());
+            ps.setString(2, LocalDate.of(ano + 1, 1, 1).toString());
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 lista.add(construirSaida(rs));

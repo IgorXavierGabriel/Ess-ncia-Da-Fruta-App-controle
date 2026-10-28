@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,7 +88,7 @@ public class PolpaDAO {
     public List<Polpa> listarPorSemana(LocalDate dataFim) throws SQLException {
         List<Polpa> polpas = new ArrayList<>();
         LocalDate dataInicio = dataFim.minusDays(6);
-        String sql = "SELECT * FROM polpa WHERE DATE(data_producao) >= ? AND DATE(data_producao) <= ? ORDER BY data_producao DESC";
+        String sql = "SELECT * FROM polpa WHERE data_producao >= ? AND data_producao <= ? ORDER BY data_producao DESC";
         try (Connection conn = Database.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, dataInicio.toString());
@@ -101,11 +102,12 @@ public class PolpaDAO {
     
     public List<Polpa> listarPorMes(int ano, int mes) throws SQLException {
         List<Polpa> polpas = new ArrayList<>();
-        String sql = "SELECT * FROM polpa WHERE CAST(STRFTIME('%Y', data_producao) AS INTEGER) = ? AND CAST(STRFTIME('%m', data_producao) AS INTEGER) = ? ORDER BY data_producao DESC";
+        String sql = "SELECT * FROM polpa WHERE data_producao >= ? AND data_producao < ? ORDER BY data_producao DESC";
+        YearMonth inicio = YearMonth.of(ano, mes);
         try (Connection conn = Database.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, ano);
-            pstmt.setInt(2, mes);
+            pstmt.setString(1, inicio.atDay(1).toString());
+            pstmt.setString(2, inicio.plusMonths(1).atDay(1).toString());
             try (ResultSet rs = pstmt.executeQuery()) {
                 polpas = construirPolpas(rs);
             }
@@ -115,10 +117,11 @@ public class PolpaDAO {
     
     public List<Polpa> listarPorAno(int ano) throws SQLException {
         List<Polpa> polpas = new ArrayList<>();
-        String sql = "SELECT * FROM polpa WHERE CAST(STRFTIME('%Y', data_producao) AS INTEGER) = ? ORDER BY data_producao DESC";
+        String sql = "SELECT * FROM polpa WHERE data_producao >= ? AND data_producao < ? ORDER BY data_producao DESC";
         try (Connection conn = Database.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, ano);
+            pstmt.setString(1, LocalDate.of(ano, 1, 1).toString());
+            pstmt.setString(2, LocalDate.of(ano + 1, 1, 1).toString());
             try (ResultSet rs = pstmt.executeQuery()) {
                 polpas = construirPolpas(rs);
             }

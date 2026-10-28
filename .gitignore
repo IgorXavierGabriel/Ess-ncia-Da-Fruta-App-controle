@@ -11,3 +11,8 @@
 *.zip
 *.tar.gz
 *.rar
+*.mv.db
+*.trace.db
+*.pdf
+.idea/
+.DS_Store

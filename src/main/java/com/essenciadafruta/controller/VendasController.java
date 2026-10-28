@@ -1,5 +1,6 @@
 package com.essenciadafruta.controller;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.List;
 import com.essenciadafruta.model.Saida;
 import com.essenciadafruta.model.dao.EstoqueDAO;
 import com.essenciadafruta.model.dao.SaidaDAO;
+import com.essenciadafruta.util.Database;
 
 /**
  * Controller para operações de Vendas
@@ -37,19 +39,25 @@ public class VendasController {
             throw new IllegalArgumentException("Polpa não encontrada no estoque");
         }
         
-        int quantidadeDisponivel = estoqueDAO.getQuantidadeDisponivel(polpaId);
-        if (quantidadeDisponivel < quantidade) {
-            throw new IllegalArgumentException("❌ Quantidade vendida não tem em estoque! \nDisponível: " + quantidadeDisponivel + " un de " + sabor + " (" + pesoUnitario + ")");
+        // Baixa de estoque e registro da venda na mesma transação
+        try (Connection conn = Database.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                if (!estoqueDAO.reduzirQuantidade(conn, polpaId, quantidade)) {
+                    conn.rollback();
+                    throw new IllegalArgumentException("❌ Quantidade vendida não tem em estoque! \nDisponível: "
+                            + estoqueDAO.getQuantidadeDisponivel(polpaId) + " un de " + sabor + " (" + pesoUnitario + ")");
+                }
+                Saida saida = new Saida(polpaId, sabor, pesoUnitario, quantidade, preco,
+                                        whatsapp, endereco, dataEntrega,
+                                        LocalDate.now(), metodo, cliente);
+                saidaDAO.inserir(conn, saida);
+                conn.commit();
+            } catch (SQLException | RuntimeException e) {
+                conn.rollback();
+                throw e;
+            }
         }
-        
-        // Registra a venda
-        Saida saida = new Saida(polpaId, sabor, pesoUnitario, quantidade, preco,
-                                whatsapp, endereco, dataEntrega,
-                                LocalDate.now(), metodo, cliente);
-        saidaDAO.inserir(saida);
-        
-        // Reduz a quantidade do estoque
-        estoqueDAO.reduzirQuantidade(polpaId, quantidade);
     }
     
     public List<Saida> listarTodas() throws SQLException {

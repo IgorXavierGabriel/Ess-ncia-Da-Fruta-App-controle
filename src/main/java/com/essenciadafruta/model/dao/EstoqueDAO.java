@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,7 +18,7 @@ public class EstoqueDAO {
      * Lista todas as produções do dia
      */
     public List<Polpa> listarPorDia(LocalDate data) throws SQLException {
-        String sql = "SELECT * FROM polpa WHERE DATE(data_producao) = ? ORDER BY data_producao DESC";
+        String sql = "SELECT * FROM polpa WHERE data_producao = ? ORDER BY data_producao DESC";
         List<Polpa> lista = new ArrayList<>();
 
         try (Connection conn = Database.getConnection();
@@ -39,7 +40,7 @@ public class EstoqueDAO {
      */
     public List<Polpa> listarPorSemana(LocalDate dataFim) throws SQLException {
         LocalDate dataInicio = dataFim.minusDays(6);
-        String sql = "SELECT * FROM polpa WHERE DATE(data_producao) >= ? AND DATE(data_producao) <= ? ORDER BY data_producao DESC";
+        String sql = "SELECT * FROM polpa WHERE data_producao >= ? AND data_producao <= ? ORDER BY data_producao DESC";
         List<Polpa> lista = new ArrayList<>();
 
         try (Connection conn = Database.getConnection();
@@ -61,15 +62,15 @@ public class EstoqueDAO {
      * Lista todas as produções do mês
      */
     public List<Polpa> listarPorMes(int ano, int mes) throws SQLException {
-        String sql = "SELECT * FROM polpa WHERE CAST(strftime('%Y', data_producao) AS INTEGER) = ? " +
-                     "AND CAST(strftime('%m', data_producao) AS INTEGER) = ? ORDER BY data_producao DESC";
+        String sql = "SELECT * FROM polpa WHERE data_producao >= ? AND data_producao < ? ORDER BY data_producao DESC";
         List<Polpa> lista = new ArrayList<>();
+        YearMonth inicio = YearMonth.of(ano, mes);
 
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setInt(1, ano);
-            ps.setInt(2, mes);
+            ps.setString(1, inicio.atDay(1).toString());
+            ps.setString(2, inicio.plusMonths(1).atDay(1).toString());
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
@@ -84,13 +85,14 @@ public class EstoqueDAO {
      * Lista todas as produções do ano
      */
     public List<Polpa> listarPorAno(int ano) throws SQLException {
-        String sql = "SELECT * FROM polpa WHERE CAST(strftime('%Y', data_producao) AS INTEGER) = ? ORDER BY data_producao DESC";
+        String sql = "SELECT * FROM polpa WHERE data_producao >= ? AND data_producao < ? ORDER BY data_producao DESC";
         List<Polpa> lista = new ArrayList<>();
 
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setInt(1, ano);
+            ps.setString(1, LocalDate.of(ano, 1, 1).toString());
+            ps.setString(2, LocalDate.of(ano + 1, 1, 1).toString());
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
@@ -161,10 +163,16 @@ public class EstoqueDAO {
      * Reduz a quantidade do estoque (usada quando vende)
      */
     public boolean reduzirQuantidade(int polpaId, int quantidadeVendida) throws SQLException {
+        try (Connection conn = Database.getConnection()) {
+            return reduzirQuantidade(conn, polpaId, quantidadeVendida);
+        }
+    }
+
+    /** Baixa o estoque numa conexão existente. O UPDATE condicional evita estoque negativo. */
+    public boolean reduzirQuantidade(Connection conn, int polpaId, int quantidadeVendida) throws SQLException {
         String sql = "UPDATE polpa SET quantidade = quantidade - ? WHERE id = ? AND quantidade >= ?";
 
-        try (Connection conn = Database.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, quantidadeVendida);
             ps.setInt(2, polpaId);
